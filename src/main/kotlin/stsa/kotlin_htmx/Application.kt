@@ -46,11 +46,15 @@ data class ApplicationConfig(
 
             val envVars: Map<String, String> = envFile().let { envFile ->
                 if (envFile.exists()) {
+                    logger.info("Loading environment from file: ${envFile.absolutePath}")
                     envFile.readLines()
                         .map { it.split("=", limit = 2) }
                         .filter { it.size == 2 }
                         .associate { it.first().trim() to it.last().trim() }
-                } else emptyMap()
+                } else {
+                    logger.warn("No environment file found, using system environment variables")
+                    emptyMap()
+                }
             }
 
             return ApplicationConfig(
@@ -69,62 +73,89 @@ fun envFile(): File {
 }
 
 fun main() {
-    if (File(".env.default").exists() && File(".env.default").readText().contains("KTOR_DEVELOPMENT=true")) {
-        System.setProperty("io.ktor.development", "true")
+    try {
+        val envFile = File(".env.default")
+        if (envFile.exists() && envFile.readText().contains("KTOR_DEVELOPMENT=true")) {
+            System.setProperty("io.ktor.development", "true")
+            println("Development mode enabled")
+        }
+    } catch (e: Exception) {
+        println("Warning: Could not check for development mode: ${e.message}")
     }
+    
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module).start(wait = true)
 }
 
 fun Application.module() {
+    try {
+        logger.info("Starting application...")
+        val config = ApplicationConfig.load()
+        logger.info("Configuration loaded successfully")
 
-    val config = ApplicationConfig.load()
-
-    install(Koin) {
-        slf4jLogger(Level.INFO)
-        properties(mapOf(
-            "lookup_api_key" to config.lookupApiKey
-        ))
-        modules(applicationModule)
-    }
-    
-    // Configure infrastructure
-    configureHTTP()
-    configureMonitoring()
-    configureRouting()
-    configureAuthentication()
-    
-    install(Compression)
-    install(ContentNegotiation) {
-        jackson {}
-    }
-
-    val apiController by inject<ApiController>()
-    val webController by inject<WebController>()
-    val healthController by inject<HealthController>()
-    val dataSyncService by inject<DataSyncService>()
-    val errorHandler by inject<ErrorHandler>()
-    
-    errorHandler.configureStatusPages(this)
-    
-    DatabaseFactory.init(
-        DatabaseConfig(
-            jdbcUrl = config.jdbcUrl,
-            username = config.dbUsername,
-            password = config.dbPassword
-        )
-    )
-    
-    apiController.registerRoutes(this)
-    webController.registerRoutes(this)
-    healthController.registerRoutes(this)
-    
-    launch {
-        try {
-            logger.info("Starting initial data synchronization...")
-            dataSyncService.synchronizeData()
-            logger.info("Initial data synchronization completed successfully")
-        } catch (e: Exception) {
-            logger.error("Error during initial data synchronization: ${e.message}", e)
+        install(Koin) {
+            slf4jLogger(Level.INFO)
+            properties(mapOf(
+                "lookup_api_key" to config.lookupApiKey
+            ))
+            modules(applicationModule)
         }
+        logger.info("Koin dependency injection configured")
+        
+        // Configure infrastructure
+        configureHTTP()
+        configureMonitoring()
+        configureRouting()
+        //configureAuthentication()
+        logger.info("Core plugins configured")
+        
+        install(Compression)
+        install(ContentNegotiation) {
+            jackson {}
+        }
+        logger.info("ContentNegotiation configured")
+
+        val apiController by inject<ApiController>()
+        val webController by inject<WebController>()
+        val healthController by inject<HealthController>()
+        val dataSyncService by inject<DataSyncService>()
+        val errorHandler by inject<ErrorHandler>()
+        
+        // Comentar esta línea para evitar el error de duplicación
+        // errorHandler.configureStatusPages(this)
+        
+        try {
+            logger.info("Initializing database with URL: ${config.jdbcUrl}")
+            DatabaseFactory.init(
+                DatabaseConfig(
+                    jdbcUrl = config.jdbcUrl,
+                    username = config.dbUsername,
+                    password = config.dbPassword
+                )
+            )
+            logger.info("Database initialized successfully")
+        } catch (e: Exception) {
+            logger.error("Failed to initialize database: ${e.message}", e)
+            throw e
+        }
+        
+        apiController.registerRoutes(this)
+        webController.registerRoutes(this)
+        healthController.registerRoutes(this)
+        logger.info("Routes registered")
+        
+        launch {
+            try {
+                logger.info("Starting initial data synchronization...")
+                dataSyncService.synchronizeData()
+                logger.info("Initial data synchronization completed successfully")
+            } catch (e: Exception) {
+                logger.error("Error during initial data synchronization: ${e.message}", e)
+            }
+        }
+        
+        logger.info("Application started successfully")
+    } catch (e: Exception) {
+        logger.error("Failed to start application: ${e.message}", e)
+        throw e
     }
 }

@@ -33,47 +33,47 @@ class AgentRepository : GameItemRepository<Agent> {
     }
 
     override suspend fun search(query: SearchQuery): SearchResult<Agent> = DatabaseFactory.dbQuery {
-        var statement = Agents.selectAll()
-        
-        // Apply search term
-        query.term?.let { term ->
-            statement = statement.andWhere {
-                Agents.name.lowerCase() like "%${term.lowercase()}%" or 
-                (Agents.description.lowerCase() like "%${term.lowercase()}%")
-            }
+    var statement = Agents.selectAll()
+    
+    // Apply search term
+    query.term?.let { term ->
+        statement = statement.andWhere {
+            Agents.name.lowerCase() like "%${term.lowercase()}%" or 
+            (Agents.description.lowerCase() like "%${term.lowercase()}%")
         }
-        
-        // Apply filters
-        query.filter.forEach { (key, value) ->
-            when (key) {
-                "team" -> statement = statement.andWhere { Agents.team.lowerCase() like "%${value.lowercase()}%" }
-            }
-        }
-        
-        val total = statement.count().toInt()
-        
-        // Convertir query.pageSize y el offset a Long
-        val pageSizeLong = query.pageSize.toLong()
-        val offsetLong = ((query.page - 1) * query.pageSize).toLong()
-        statement = statement.limit(pageSizeLong, offsetLong)
-        
-        val items = statement.map { row ->
-            Agent(
-                id = row[Agents.id],
-                name = row[Agents.name],
-                description = row[Agents.description],
-                image = row[Agents.image],
-                team = row[Agents.team]
-            )
-        }
-        
-        SearchResult(
-            items = items,
-            total = total,
-            page = query.page,
-            pageSize = query.pageSize
-        )
     }
+    
+    // Apply filters
+    query.filter.forEach { (key, value) ->
+        when (key) {
+            "team" -> statement = statement.andWhere { Agents.team.lowerCase() like "%${value.lowercase()}%" }
+        }
+    }
+    
+    // Obtenemos todos los resultados sin paginación
+    val allItems = statement.map { row ->
+        Agent(
+            id = row[Agents.id],
+            name = row[Agents.name],
+            description = row[Agents.description],
+            image = row[Agents.image],
+            team = row[Agents.team]
+        )
+    }.toList()
+    
+    // Aplicamos paginación manualmente
+    val total = allItems.size
+    val startIndex = (query.page - 1) * query.pageSize
+    val endIndex = minOf(startIndex + query.pageSize, total)
+    val paginatedItems = if (startIndex < total) allItems.subList(startIndex, endIndex) else emptyList()
+    
+    SearchResult(
+        items = paginatedItems,
+        total = total,
+        page = query.page,
+        pageSize = query.pageSize
+    )
+}
 
     override suspend fun saveAll(items: List<Agent>): Unit = DatabaseFactory.dbQuery {
         items.forEach { agent ->

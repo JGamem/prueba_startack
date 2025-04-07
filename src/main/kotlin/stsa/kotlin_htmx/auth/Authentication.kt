@@ -8,13 +8,18 @@ import io.ktor.server.sessions.*
 import io.ktor.util.*
 import org.slf4j.LoggerFactory
 import kotlin.time.Duration.Companion.days
+import kotlinx.serialization.Serializable
 
+@Serializable
 class UserSession(val username: String) : Principal
+
+// Define the key globally so it can be accessed from other parts of the app
+val AUTH_SERVICE_KEY = AttributeKey<AuthenticationService>("auth-service")
 
 class AuthenticationService {
     private val logger = LoggerFactory.getLogger(this::class.java)
     
-    // En una app real, esto estaría almacenado en una base de datos con contraseñas hash
+    // In a real app, this would be stored in a database with hashed passwords
     private val users = mapOf(
         "admin" to "password123"
     )
@@ -27,16 +32,30 @@ class AuthenticationService {
 
 fun Application.configureAuthentication() {
     val authService = AuthenticationService()
+    attributes.put(AUTH_SERVICE_KEY, authService)
     
     install(Sessions) {
-        cookie<UserSession>("user_session") {
-            cookie.path = "/"
-            cookie.maxAgeInSeconds = 1.days.inWholeSeconds
-            cookie.extensions["SameSite"] = "lax"
-            cookie.httpOnly = true
-            transform(SessionTransportTransformerEncrypt(hex("00112233445566778899aabbccddeeff"), hex("a1a2a3a4a5a6a7a8")))
+    cookie<UserSession>("user_session") {
+        cookie.path = "/"
+        cookie.maxAgeInSeconds = 1.days.inWholeSeconds
+        cookie.extensions["SameSite"] = "lax"
+        cookie.httpOnly = true
+        
+        serializer = object : SessionSerializer<UserSession> {
+            override fun serialize(session: UserSession): String {
+                return session.username
+            }
+            
+            override fun deserialize(text: String): UserSession {
+                return UserSession(text)
+            }
         }
+        
+        val encryptKey = hex("00112233445566778899aabbccddeeff")
+        val signKey = hex("a1a2a3a4a5a6a7a8")
+        transform(SessionTransportTransformerEncrypt(encryptKey, signKey))
     }
+}
     
     install(Authentication) {
         session<UserSession>("auth-session") {

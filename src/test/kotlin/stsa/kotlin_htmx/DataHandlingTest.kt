@@ -17,7 +17,7 @@ class DataHandlingTest {
 
         client.get("/xml").apply {
             assertEquals(HttpStatusCode.OK, status)
-            val body = bodyAsText()
+            val body = body<String>()
             assertTrue(body.startsWith("<?xml"))
         }
     }

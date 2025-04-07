@@ -9,6 +9,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
+import stsa.kotlin_htmx.auth.AuthenticationService
 import stsa.kotlin_htmx.auth.UserSession
 import stsa.kotlin_htmx.models.SearchQuery
 import stsa.kotlin_htmx.services.*
@@ -162,28 +163,29 @@ class ApiController(
             // Authentication endpoints
             route("/auth") {
                 post("/login") {
-                    val authFormResult = application.plugin(Authentication).providers
-                        .firstOrNull { it.name == "auth-form" }
-                    
-                    // This is a simple workaround for the suspend function issue
-                    val username = call.request.queryParameters["username"] 
-                        ?: call.request.post()["username"]
-                    val password = call.request.queryParameters["password"] 
-                        ?: call.request.post()["password"]
-                    
-                    if (username != null && password != null) {
-                        val authService = application.attributes.get(AttributeKey("auth-service"))
-                                as? AuthenticationService ?: AuthenticationService()
+                    try {
+                        // Directly use form parameters
+                        val formParameters = call.receiveParameters()
+                        val username = formParameters["username"] ?: call.request.queryParameters["username"]
+                        val password = formParameters["password"] ?: call.request.queryParameters["password"]
                         
-                        if (authService.validateCredentials(username, password)) {
-                            val principal = UserSession(username)
-                            call.sessions.set(principal)
-                            call.respond(HttpStatusCode.OK, mapOf("message" to "Login successful"))
+                        if (username != null && password != null) {
+                            // Create a new instance instead of trying to retrieve from attributes
+                            val authService = AuthenticationService()
+                            
+                            if (authService.validateCredentials(username, password)) {
+                                val principal = UserSession(username)
+                                call.sessions.set(principal)
+                                call.respond(HttpStatusCode.OK, mapOf("message" to "Login successful"))
+                            } else {
+                                call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "Invalid credentials"))
+                            }
                         } else {
-                            call.respond(HttpStatusCode.Unauthorized)
+                            call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing credentials"))
                         }
-                    } else {
-                        call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing credentials"))
+                    } catch (e: Exception) {
+                        application.log.error("Login error", e)
+                        call.respond(HttpStatusCode.InternalServerError, mapOf("message" to "An error occurred during login"))
                     }
                 }
                 

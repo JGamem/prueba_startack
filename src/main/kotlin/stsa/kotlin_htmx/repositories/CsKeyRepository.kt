@@ -36,61 +36,61 @@ class CsKeyRepository : GameItemRepository<CsKey> {
     }
 
     override suspend fun search(query: SearchQuery): SearchResult<CsKey> = DatabaseFactory.dbQuery {
-        var statement = Keys.selectAll()
-        
-        // Apply search term
-        query.term?.let { term ->
-            statement = statement.andWhere {
-                Keys.name.lowerCase() like "%${term.lowercase()}%" or 
-                (Keys.description.lowerCase() like "%${term.lowercase()}%")
-            }
+    var statement = Keys.selectAll()
+    
+    // Apply search term
+    query.term?.let { term ->
+        statement = statement.andWhere {
+            Keys.name.lowerCase() like "%${term.lowercase()}%" or 
+            (Keys.description.lowerCase() like "%${term.lowercase()}%")
         }
-        
-        // Apply filters
-        query.filter.forEach { (key, value) ->
-            when (key) {
-                "crates" -> {
-                    // Join with CrateReferences to filter by crate
-                    statement = Join(
-                        Keys, CrateReferences,
-                        onColumn = Keys.id, otherColumn = CrateReferences.itemId,
-                        additionalConstraint = { CrateReferences.itemType eq "key" }
-                    ).selectAll().andWhere {
-                        val crateId = Crates.select { Crates.name.lowerCase() eq value.lowercase() }
-                            .map { it[Crates.id] }
-                            .firstOrNull()
-                        crateId?.let { CrateReferences.crateId eq it } ?: Op.FALSE
-                    }
+    }
+    
+    // Apply filters
+    query.filter.forEach { (key, value) ->
+        when (key) {
+            "crates" -> {
+                // Join with CrateReferences to filter by crate
+                statement = Join(
+                    Keys, CrateReferences,
+                    onColumn = Keys.id, otherColumn = CrateReferences.itemId,
+                    additionalConstraint = { CrateReferences.itemType eq "key" }
+                ).selectAll().andWhere {
+                    val crateId = Crates.select { Crates.name.lowerCase() eq value.lowercase() }
+                        .map { it[Crates.id] }
+                        .firstOrNull()
+                    crateId?.let { CrateReferences.crateId eq it } ?: Op.FALSE
                 }
             }
         }
-        
-        val total = statement.count().toInt()
-        
-        // Convertir query.pageSize y el offset a Long
-        val pageSizeLong = query.pageSize.toLong()
-        val offsetLong = ((query.page - 1) * query.pageSize).toLong()
-        statement = statement.limit(pageSizeLong, offsetLong)
-        
-        val items = statement.map { row ->
-            val id = row[Keys.id]
-            val crates = getCratesForItem(id, "key")
-            CsKey(
-                id = id,
-                name = row[Keys.name],
-                description = row[Keys.description],
-                image = row[Keys.image],
-                crates = crates
-            )
-        }
-        
-        SearchResult(
-            items = items,
-            total = total,
-            page = query.page,
-            pageSize = query.pageSize
-        )
     }
+    
+    // Obtenemos todos los resultados sin paginación
+    val allItems = statement.map { row ->
+        val id = row[Keys.id]
+        val crates = getCratesForItem(id, "key")
+        CsKey(
+            id = id,
+            name = row[Keys.name],
+            description = row[Keys.description],
+            image = row[Keys.image],
+            crates = crates
+        )
+    }.toList()
+    
+    // Aplicamos paginación manualmente
+    val total = allItems.size
+    val startIndex = (query.page - 1) * query.pageSize
+    val endIndex = minOf(startIndex + query.pageSize, total)
+    val paginatedItems = if (startIndex < total) allItems.subList(startIndex, endIndex) else emptyList()
+    
+    SearchResult(
+        items = paginatedItems,
+        total = total,
+        page = query.page,
+        pageSize = query.pageSize
+    )
+}
 
     override suspend fun saveAll(items: List<CsKey>): Unit = DatabaseFactory.dbQuery {
         items.forEach { key ->

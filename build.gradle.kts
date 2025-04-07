@@ -3,14 +3,15 @@ import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
 val ktorVersion: String by project
 val kotlinVersion: String by project
 val logbackVersion: String by project
-val exposedVersion = "0.50.0"
+val exposedVersion = "0.44.0"
 val koinVersion = "3.5.3"
 
 plugins {
     kotlin("jvm") version "2.0.21"
-    id("io.ktor.plugin") version "3.0.1"
+    application
     id("com.github.ben-manes.versions") version "0.51.0"
-    id("com.gradleup.shadow") version "8.3.5"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
+    kotlin("plugin.serialization") version "2.0.21" 
 }
 
 group = "stsa.kotlin-htmx"
@@ -56,6 +57,7 @@ dependencies {
     implementation("io.ktor:ktor-server-auth:$ktorVersion")
     implementation("io.ktor:ktor-server-sessions:$ktorVersion")
     implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     // Ktor Client
     implementation("io.ktor:ktor-client-core:$ktorVersion")

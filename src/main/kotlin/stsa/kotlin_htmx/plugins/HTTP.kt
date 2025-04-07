@@ -15,7 +15,14 @@ fun Application.configureHTTP() {
         allowMethod(HttpMethod.Put)
         allowMethod(HttpMethod.Delete)
         allowMethod(HttpMethod.Patch)
+        allowMethod(HttpMethod.Post)
         allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.ContentType)
+        allowHeader("HX-Request")
+        allowHeader("HX-Trigger")
+        allowHeader("HX-Target")
+        allowHeader("HX-Current-URL")
+        allowCredentials = true
     }
     install(DefaultHeaders) {
         header("X-Engine", "Ktor") // will send this header with each response

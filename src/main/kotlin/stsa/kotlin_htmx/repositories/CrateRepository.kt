@@ -31,39 +31,39 @@ class CrateRepository : GameItemRepository<Crate> {
     }
 
     override suspend fun search(query: SearchQuery): SearchResult<Crate> = DatabaseFactory.dbQuery {
-        var statement = Crates.selectAll()
-        
-        // Apply search term
-        query.term?.let { term ->
-            statement = statement.andWhere {
-                Crates.name.lowerCase() like "%${term.lowercase()}%" or 
-                (Crates.description.lowerCase() like "%${term.lowercase()}%")
-            }
+    var statement = Crates.selectAll()
+    
+    // Apply search term
+    query.term?.let { term ->
+        statement = statement.andWhere {
+            Crates.name.lowerCase() like "%${term.lowercase()}%" or 
+            (Crates.description.lowerCase() like "%${term.lowercase()}%")
         }
-        
-        val total = statement.count().toInt()
-        
-        // Convertir query.pageSize y el offset a Long
-        val pageSizeLong = query.pageSize.toLong()
-        val offsetLong = ((query.page - 1) * query.pageSize).toLong()
-        statement = statement.limit(pageSizeLong, offsetLong)
-        
-        val items = statement.map { row ->
-            Crate(
-                id = row[Crates.id],
-                name = row[Crates.name],
-                description = row[Crates.description],
-                image = row[Crates.image]
-            )
-        }
-        
-        SearchResult(
-            items = items,
-            total = total,
-            page = query.page,
-            pageSize = query.pageSize
-        )
     }
+    
+    // Obtenemos todos los resultados sin paginación
+    val allItems = statement.map { row ->
+        Crate(
+            id = row[Crates.id],
+            name = row[Crates.name],
+            description = row[Crates.description],
+            image = row[Crates.image]
+        )
+    }.toList()
+    
+    // Aplicamos paginación manualmente
+    val total = allItems.size
+    val startIndex = (query.page - 1) * query.pageSize
+    val endIndex = minOf(startIndex + query.pageSize, total)
+    val paginatedItems = if (startIndex < total) allItems.subList(startIndex, endIndex) else emptyList()
+    
+    SearchResult(
+        items = paginatedItems,
+        total = total,
+        page = query.page,
+        pageSize = query.pageSize
+    )
+}
 
     override suspend fun saveAll(items: List<Crate>): Unit = DatabaseFactory.dbQuery {
         items.forEach { crate ->

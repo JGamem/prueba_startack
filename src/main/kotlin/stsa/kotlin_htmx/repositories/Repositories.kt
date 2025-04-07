@@ -60,61 +60,63 @@ class SkinRepository : GameItemRepository<Skin> {
     }
 
     override suspend fun search(query: SearchQuery): SearchResult<Skin> = DatabaseFactory.dbQuery {
-        var statement = Skins.selectAll()
-        
-        // Apply search term
-        query.term?.let { term ->
-            statement = statement.andWhere {
-                Skins.name.lowerCase() like "%${term.lowercase()}%" or 
-                (Skins.description.lowerCase() like "%${term.lowercase()}%")
-            }
+    var statement = Skins.selectAll()
+    
+    // Apply search term
+    query.term?.let { term ->
+        statement = statement.andWhere {
+            Skins.name.lowerCase() like "%${term.lowercase()}%" or 
+            (Skins.description.lowerCase() like "%${term.lowercase()}%")
         }
-        
-        // Apply filters
-        query.filter.forEach { (key, value) ->
-            when (key) {
-                "team" -> statement = statement.andWhere { Skins.team.lowerCase() like "%${value.lowercase()}%" }
-                "crates" -> {
-                    // Join with CrateReferences to filter by crate
-                    statement = Join(
-                        Skins, CrateReferences,
-                        onColumn = Skins.id, otherColumn = CrateReferences.itemId,
-                        additionalConstraint = { CrateReferences.itemType eq "skin" }
-                    ).selectAll().andWhere {
-                        val crateId = Crates.select { Crates.name.lowerCase() eq value.lowercase() }
-                            .map { it[Crates.id] }
-                            .firstOrNull()
-                        crateId?.let { CrateReferences.crateId eq it } ?: Op.FALSE
-                    }
+    }
+    
+    // Apply filters
+    query.filter.forEach { (key, value) ->
+        when (key) {
+            "team" -> statement = statement.andWhere { Skins.team.lowerCase() like "%${value.lowercase()}%" }
+            "crates" -> {
+                // Join with CrateReferences to filter by crate
+                statement = Join(
+                    Skins, CrateReferences,
+                    onColumn = Skins.id, otherColumn = CrateReferences.itemId,
+                    additionalConstraint = { CrateReferences.itemType eq "skin" }
+                ).selectAll().andWhere {
+                    val crateId = Crates.select { Crates.name.lowerCase() eq value.lowercase() }
+                        .map { it[Crates.id] }
+                        .firstOrNull()
+                    crateId?.let { CrateReferences.crateId eq it } ?: Op.FALSE
                 }
             }
         }
-        
-        val total = statement.count().toInt()
-        
-        statement = statement.limit(query.pageSize, offset = (query.page - 1) * query.pageSize)
-        
-        val items = statement.map { row ->
-            val id = row[Skins.id]
-            val crates = getCratesForItem(id, "skin")
-            Skin(
-                id = id,
-                name = row[Skins.name],
-                description = row[Skins.description],
-                image = row[Skins.image],
-                team = row[Skins.team],
-                crates = crates
-            )
-        }
-        
-        SearchResult(
-            items = items,
-            total = total,
-            page = query.page,
-            pageSize = query.pageSize
-        )
     }
-
+    
+    // Obtenemos todos los resultados sin paginación
+    val allItems = statement.map { row ->
+        val id = row[Skins.id]
+        val crates = getCratesForItem(id, "skin")
+        Skin(
+            id = id,
+            name = row[Skins.name],
+            description = row[Skins.description],
+            image = row[Skins.image],
+            team = row[Skins.team],
+            crates = crates
+        )
+    }.toList()
+    
+    // Aplicamos paginación manualmente
+    val total = allItems.size
+    val startIndex = (query.page - 1) * query.pageSize
+    val endIndex = minOf(startIndex + query.pageSize, total)
+    val paginatedItems = if (startIndex < total) allItems.subList(startIndex, endIndex) else emptyList()
+    
+    SearchResult(
+        items = paginatedItems,
+        total = total,
+        page = query.page,
+        pageSize = query.pageSize
+    )
+}
     override suspend fun saveAll(items: List<Skin>): Unit = DatabaseFactory.dbQuery {
         items.forEach { skin ->
             Skins.insert {
