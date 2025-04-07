@@ -76,10 +76,9 @@ fun main() {
 }
 
 fun Application.module() {
-    // Load configuration
+
     val config = ApplicationConfig.load()
-    
-    // Configure Koin
+
     install(Koin) {
         slf4jLogger(Level.INFO)
         properties(mapOf(
@@ -98,18 +97,15 @@ fun Application.module() {
     install(ContentNegotiation) {
         jackson {}
     }
-    
-    // Get services from Koin
+
     val apiController by inject<ApiController>()
     val webController by inject<WebController>()
     val healthController by inject<HealthController>()
     val dataSyncService by inject<DataSyncService>()
     val errorHandler by inject<ErrorHandler>()
     
-    // Configure error handling
     errorHandler.configureStatusPages(this)
     
-    // Initialize database
     DatabaseFactory.init(
         DatabaseConfig(
             jdbcUrl = config.jdbcUrl,
@@ -118,12 +114,10 @@ fun Application.module() {
         )
     )
     
-    // Register routes
     apiController.registerRoutes(this)
     webController.registerRoutes(this)
     healthController.registerRoutes(this)
     
-    // Sync data on startup
     launch {
         try {
             logger.info("Starting initial data synchronization...")

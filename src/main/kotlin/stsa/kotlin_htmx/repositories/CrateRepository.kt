@@ -43,7 +43,10 @@ class CrateRepository : GameItemRepository<Crate> {
         
         val total = statement.count().toInt()
         
-        statement = statement.limit(query.pageSize.toLong(), ((query.page - 1) * query.pageSize).toLong())
+        // Convertir query.pageSize y el offset a Long
+        val pageSizeLong = query.pageSize.toLong()
+        val offsetLong = ((query.page - 1) * query.pageSize).toLong()
+        statement = statement.limit(pageSizeLong, offsetLong)
         
         val items = statement.map { row ->
             Crate(
@@ -62,7 +65,7 @@ class CrateRepository : GameItemRepository<Crate> {
         )
     }
 
-    override suspend fun saveAll(items: List<Crate>) = DatabaseFactory.dbQuery {
+    override suspend fun saveAll(items: List<Crate>): Unit = DatabaseFactory.dbQuery {
         items.forEach { crate ->
             Crates.insert {
                 it[id] = crate.id
@@ -73,7 +76,7 @@ class CrateRepository : GameItemRepository<Crate> {
         }
     }
 
-    override suspend fun deleteAll() = DatabaseFactory.dbQuery {
+    override suspend fun deleteAll(): Unit = DatabaseFactory.dbQuery {
         Crates.deleteAll()
     }
 }

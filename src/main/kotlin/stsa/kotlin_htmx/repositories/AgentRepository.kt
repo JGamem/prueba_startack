@@ -52,7 +52,10 @@ class AgentRepository : GameItemRepository<Agent> {
         
         val total = statement.count().toInt()
         
-        statement = statement.limit(query.pageSize.toLong(), ((query.page - 1) * query.pageSize).toLong())
+        // Convertir query.pageSize y el offset a Long
+        val pageSizeLong = query.pageSize.toLong()
+        val offsetLong = ((query.page - 1) * query.pageSize).toLong()
+        statement = statement.limit(pageSizeLong, offsetLong)
         
         val items = statement.map { row ->
             Agent(
@@ -72,7 +75,7 @@ class AgentRepository : GameItemRepository<Agent> {
         )
     }
 
-    override suspend fun saveAll(items: List<Agent>) = DatabaseFactory.dbQuery {
+    override suspend fun saveAll(items: List<Agent>): Unit = DatabaseFactory.dbQuery {
         items.forEach { agent ->
             Agents.insert {
                 it[id] = agent.id
@@ -84,7 +87,7 @@ class AgentRepository : GameItemRepository<Agent> {
         }
     }
 
-    override suspend fun deleteAll() = DatabaseFactory.dbQuery {
+    override suspend fun deleteAll(): Unit = DatabaseFactory.dbQuery {
         Agents.deleteAll()
     }
 }

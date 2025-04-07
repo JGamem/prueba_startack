@@ -46,9 +46,7 @@ class HealthController {
     private suspend fun checkDatabaseConnection(): Map<String, Any> = try {
         newSuspendedTransaction(Dispatchers.IO) {
             try {
-                val statement = connection.prepareStatement("SELECT 1")
-                val result = statement.executeQuery()
-                result.next()
+                exec("SELECT 1")
                 mapOf(
                     "status" to "UP",
                     "message" to "Database connection is healthy"

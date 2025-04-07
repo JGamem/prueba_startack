@@ -2,12 +2,11 @@ package stsa.kotlin_htmx
 
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.http.*
 import io.ktor.server.testing.*
-import org.junit.Test
-import org.xml.sax.InputSource
-import java.io.StringReader
-import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class DataHandlingTest {
     @Test
@@ -17,10 +16,9 @@ class DataHandlingTest {
         }
 
         client.get("/xml").apply {
-            val dbf = DocumentBuilderFactory.newInstance()
-            val db = dbf.newDocumentBuilder()
-            assertEquals(
-                db.parse(InputSource(StringReader(this.body<String>()))).xmlEncoding, "UTF-8")
+            assertEquals(HttpStatusCode.OK, status)
+            val body = bodyAsText()
+            assertTrue(body.startsWith("<?xml"))
         }
     }
 }

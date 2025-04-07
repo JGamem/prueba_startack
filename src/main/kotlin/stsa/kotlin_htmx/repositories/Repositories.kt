@@ -92,7 +92,7 @@ class SkinRepository : GameItemRepository<Skin> {
         
         val total = statement.count().toInt()
         
-        statement = statement.limit(query.pageSize.toLong(), ((query.page - 1) * query.pageSize).toLong())
+        statement = statement.limit(query.pageSize, offset = (query.page - 1) * query.pageSize)
         
         val items = statement.map { row ->
             val id = row[Skins.id]
@@ -115,7 +115,7 @@ class SkinRepository : GameItemRepository<Skin> {
         )
     }
 
-    override suspend fun saveAll(items: List<Skin>) = DatabaseFactory.dbQuery {
+    override suspend fun saveAll(items: List<Skin>): Unit = DatabaseFactory.dbQuery {
         items.forEach { skin ->
             Skins.insert {
                 it[id] = skin.id

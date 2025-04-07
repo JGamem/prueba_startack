@@ -7,6 +7,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import stsa.kotlin_htmx.auth.UserSession
 import stsa.kotlin_htmx.models.SearchQuery
@@ -161,14 +162,28 @@ class ApiController(
             // Authentication endpoints
             route("/auth") {
                 post("/login") {
-                    authenticate("auth-form") {
-                        val principal = call.principal<UserSession>()
-                        if (principal != null) {
+                    val authFormResult = application.plugin(Authentication).providers
+                        .firstOrNull { it.name == "auth-form" }
+                    
+                    // This is a simple workaround for the suspend function issue
+                    val username = call.request.queryParameters["username"] 
+                        ?: call.request.post()["username"]
+                    val password = call.request.queryParameters["password"] 
+                        ?: call.request.post()["password"]
+                    
+                    if (username != null && password != null) {
+                        val authService = application.attributes.get(AttributeKey("auth-service"))
+                                as? AuthenticationService ?: AuthenticationService()
+                        
+                        if (authService.validateCredentials(username, password)) {
+                            val principal = UserSession(username)
                             call.sessions.set(principal)
                             call.respond(HttpStatusCode.OK, mapOf("message" to "Login successful"))
                         } else {
                             call.respond(HttpStatusCode.Unauthorized)
                         }
+                    } else {
+                        call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Missing credentials"))
                     }
                 }
                 

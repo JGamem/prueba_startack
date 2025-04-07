@@ -51,7 +51,7 @@ class ItemListTemplate<T : GameItem> : Template<FlowContent> {
                                             p { +"Crates: ${crates.joinToString(", ")}" }
                                         }
                                     }
-                                    is Key -> item.crates?.let { crates ->
+                                    is CsKey -> item.crates?.let { crates ->
                                         if (crates.isNotEmpty()) {
                                             p { +"Crates: ${crates.joinToString(", ")}" }
                                         }

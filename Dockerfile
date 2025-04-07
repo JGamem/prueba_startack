@@ -2,6 +2,8 @@ FROM eclipse-temurin:20-jdk-alpine as build
 
 WORKDIR /tmp/build
 COPY . .
+
+RUN chmod +x ./gradlew
 RUN ./gradlew shadowJar --no-daemon
 
 FROM eclipse-temurin:20-jre-alpine
