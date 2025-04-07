@@ -13,6 +13,7 @@ import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
 import org.slf4j.LoggerFactory
+import stsa.kotlin_htmx.auth.configureAuthentication
 import stsa.kotlin_htmx.controllers.ApiController
 import stsa.kotlin_htmx.controllers.HealthController
 import stsa.kotlin_htmx.controllers.WebController
@@ -81,6 +82,9 @@ fun Application.module() {
         val config = ApplicationConfig.load()
         logger.info("Configuration loaded successfully")
 
+        // Configurar autenticación ANTES de otras configuraciones
+        configureAuthentication()
+
         install(Koin) {
             slf4jLogger(Level.INFO)
             properties(mapOf(
@@ -90,7 +94,7 @@ fun Application.module() {
         }
         logger.info("Koin dependency injection configured")
         
-        // Configure infrastructure
+        // Configurar infraestructura
         configureHTTP()
         configureMonitoring()
         configureRouting()

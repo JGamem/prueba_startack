@@ -26,7 +26,7 @@ class ApiController(
     
     fun registerRoutes(application: Application) {
         application.routing {
-            // Skins endpoints
+            // Rutas sin autenticación
             route("/api/skins") {
                 get {
                     val skins = skinService.getAll()
@@ -44,22 +44,9 @@ class ApiController(
                     val results = skinService.search(query)
                     call.respond(results)
                 }
-                
-                get("/export") {
-                    val term = call.request.queryParameters["term"]
-                    val filters = call.request.queryParameters.entries()
-                        .filter { it.key != "term" && !it.key.startsWith("_") }
-                        .associate { it.key to it.value.first() }
-                    
-                    val query = SearchQuery(term = term, filter = filters)
-                    val results = skinService.search(query)
-                    
-                    val xml = xmlConverter.toXml(results.items)
-                    call.respondText(xml, ContentType.Application.Xml)
-                }
             }
             
-            // Agents endpoints
+            // Rutas para agentes
             route("/api/agents") {
                 get {
                     val agents = agentService.getAll()
@@ -77,22 +64,9 @@ class ApiController(
                     val results = agentService.search(query)
                     call.respond(results)
                 }
-                
-                get("/export") {
-                    val term = call.request.queryParameters["term"]
-                    val filters = call.request.queryParameters.entries()
-                        .filter { it.key != "term" && !it.key.startsWith("_") }
-                        .associate { it.key to it.value.first() }
-                    
-                    val query = SearchQuery(term = term, filter = filters)
-                    val results = agentService.search(query)
-                    
-                    val xml = xmlConverter.toXml(results.items)
-                    call.respondText(xml, ContentType.Application.Xml)
-                }
             }
             
-            // Crates endpoints
+            // Rutas para crates
             route("/api/crates") {
                 get {
                     val crates = crateService.getAll()
@@ -110,22 +84,9 @@ class ApiController(
                     val results = crateService.search(query)
                     call.respond(results)
                 }
-                
-                get("/export") {
-                    val term = call.request.queryParameters["term"]
-                    val filters = call.request.queryParameters.entries()
-                        .filter { it.key != "term" && !it.key.startsWith("_") }
-                        .associate { it.key to it.value.first() }
-                    
-                    val query = SearchQuery(term = term, filter = filters)
-                    val results = crateService.search(query)
-                    
-                    val xml = xmlConverter.toXml(results.items)
-                    call.respondText(xml, ContentType.Application.Xml)
-                }
             }
             
-            // Keys endpoints (protected with authentication)
+            // Rutas protegidas para keys
             route("/api/keys") {
                 authenticate("auth-session") {
                     get {
@@ -144,33 +105,18 @@ class ApiController(
                         val results = keyService.search(query)
                         call.respond(results)
                     }
-                    
-                    get("/export") {
-                        val term = call.request.queryParameters["term"]
-                        val filters = call.request.queryParameters.entries()
-                            .filter { it.key != "term" && !it.key.startsWith("_") }
-                            .associate { it.key to it.value.first() }
-                        
-                        val query = SearchQuery(term = term, filter = filters)
-                        val results = keyService.search(query)
-                        
-                        val xml = xmlConverter.toXml(results.items)
-                        call.respondText(xml, ContentType.Application.Xml)
-                    }
                 }
             }
             
-            // Authentication endpoints
+            // Rutas de autenticación
             route("/auth") {
                 post("/login") {
                     try {
-                        // Directly use form parameters
                         val formParameters = call.receiveParameters()
-                        val username = formParameters["username"] ?: call.request.queryParameters["username"]
-                        val password = formParameters["password"] ?: call.request.queryParameters["password"]
+                        val username = formParameters["username"]
+                        val password = formParameters["password"]
                         
                         if (username != null && password != null) {
-                            // Create a new instance instead of trying to retrieve from attributes
                             val authService = AuthenticationService()
                             
                             if (authService.validateCredentials(username, password)) {
@@ -202,14 +148,6 @@ class ApiController(
                         call.respond(mapOf("authenticated" to false))
                     }
                 }
-            }
-            
-            // XML Export endpoint
-            get("/xml") {
-                call.respondText(
-                    """<?xml version="1.0" encoding="UTF-8"?><startrack></startrack>""",
-                    ContentType.Application.Xml
-                )
             }
         }
     }

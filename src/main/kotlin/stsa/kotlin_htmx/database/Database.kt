@@ -21,15 +21,23 @@ object DatabaseFactory {
             val dataSource = hikari(config)
             val database = Database.connect(dataSource)
             
-            TransactionManager.manager.defaultIsolationLevel = 
-                Connection.TRANSACTION_READ_COMMITTED
+            // Configurar nivel de aislamiento de transacciones
+            TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
 
+            // Crear tablas si no existen
             transaction(database) {
                 logger.info("Creating database schema if not exists")
-                SchemaUtils.create(Skins, Agents, Crates, Keys, CrateReferences)
+                SchemaUtils.createMissingTablesAndColumns(
+                    Skins, 
+                    Agents, 
+                    Crates, 
+                    Keys, 
+                    CrateReferences
+                )
                 logger.info("Schema creation completed")
             }
             
+            // Probar conexión
             transaction(database) {
                 exec("SELECT 1")
                 logger.info("Database connection test successful")
@@ -50,18 +58,22 @@ object DatabaseFactory {
             username = config.username
             password = config.password
             
-            maximumPoolSize = 10 
+            // Configuraciones de pool
+            maximumPoolSize = 10
             minimumIdle = 2
             idleTimeout = 30000
             connectionTimeout = 30000
             maxLifetime = 2000000
-
+            
+            // Configuraciones de conexión
             isAutoCommit = true
             connectionTestQuery = "SELECT 1"
-
+            
+            // Propiedades adicionales
             addDataSourceProperty("ApplicationName", "StartrackApp")
             addDataSourceProperty("reWriteBatchedInserts", "true")
-
+            
+            // Configuraciones de validación
             validationTimeout = TimeUnit.SECONDS.toMillis(3)
         }
         
