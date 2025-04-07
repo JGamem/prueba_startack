@@ -4,7 +4,9 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import java.sql.Connection
 import java.util.concurrent.TimeUnit
@@ -19,17 +21,18 @@ object DatabaseFactory {
             val dataSource = hikari(config)
             val database = Database.connect(dataSource)
             
-            // Test the connection
-            org.jetbrains.exposed.sql.transactions.transaction(database) {
-                exec("SELECT 1")
-                logger.info("Database connection test successful")
-            }
-            
-            // Create tables if they don't exist
-            org.jetbrains.exposed.sql.transactions.transaction(database) {
+            TransactionManager.manager.defaultIsolationLevel = 
+                Connection.TRANSACTION_READ_COMMITTED
+
+            transaction(database) {
                 logger.info("Creating database schema if not exists")
                 SchemaUtils.create(Skins, Agents, Crates, Keys, CrateReferences)
                 logger.info("Schema creation completed")
+            }
+            
+            transaction(database) {
+                exec("SELECT 1")
+                logger.info("Database connection test successful")
             }
             
             logger.info("Database initialized successfully")
@@ -46,23 +49,20 @@ object DatabaseFactory {
             jdbcUrl = config.jdbcUrl
             username = config.username
             password = config.password
-            maximumPoolSize = 3
-            isAutoCommit = false
-            transactionIsolation = "TRANSACTION_REPEATABLE_READ"
             
-            // Connection testing
+            maximumPoolSize = 10 
+            minimumIdle = 2
+            idleTimeout = 30000
+            connectionTimeout = 30000
+            maxLifetime = 2000000
+
+            isAutoCommit = true
             connectionTestQuery = "SELECT 1"
-            validationTimeout = TimeUnit.SECONDS.toMillis(3)
-            idleTimeout = TimeUnit.MINUTES.toMillis(10)
-            maxLifetime = TimeUnit.MINUTES.toMillis(30)
-            
-            // Connection attempt settings
-            connectionTimeout = TimeUnit.SECONDS.toMillis(30)
-            initializationFailTimeout = TimeUnit.SECONDS.toMillis(30)
-            
-            // Add additional properties
+
             addDataSourceProperty("ApplicationName", "StartrackApp")
-            addDataSourceProperty("reWriteBatchedInserts", "true")  // Improves batch insert performance
+            addDataSourceProperty("reWriteBatchedInserts", "true")
+
+            validationTimeout = TimeUnit.SECONDS.toMillis(3)
         }
         
         return HikariDataSource(hikariConfig)

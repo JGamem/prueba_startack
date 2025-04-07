@@ -22,9 +22,13 @@ application {
 }
 
 tasks {
+    named<JavaExec>("run") {
+        mainClass.set("stsa.kotlin_htmx.ApplicationKt")
+    }
+
     named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
         manifest {
-            attributes["Main-Class"] = mainClassString
+            attributes["Main-Class"] = "stsa.kotlin_htmx.ApplicationKt"
         }
         archiveBaseName.set("kotlin-htmx")
         mergeServiceFiles()

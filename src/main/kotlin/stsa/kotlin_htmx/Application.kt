@@ -6,16 +6,13 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.compression.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.routing.*
 import kotlinx.coroutines.launch
-import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
 import org.slf4j.LoggerFactory
-import stsa.kotlin_htmx.auth.configureAuthentication
 import stsa.kotlin_htmx.controllers.ApiController
 import stsa.kotlin_htmx.controllers.HealthController
 import stsa.kotlin_htmx.controllers.WebController
@@ -73,17 +70,9 @@ fun envFile(): File {
 }
 
 fun main() {
-    try {
-        val envFile = File(".env.default")
-        if (envFile.exists() && envFile.readText().contains("KTOR_DEVELOPMENT=true")) {
-            System.setProperty("io.ktor.development", "true")
-            println("Development mode enabled")
-        }
-    } catch (e: Exception) {
-        println("Warning: Could not check for development mode: ${e.message}")
-    }
-    
-    embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module).start(wait = true)
+    embeddedServer(Netty, port = 8080, host = "0.0.0.0") { 
+        module() 
+    }.start(wait = true)
 }
 
 fun Application.module() {
@@ -105,7 +94,6 @@ fun Application.module() {
         configureHTTP()
         configureMonitoring()
         configureRouting()
-        //configureAuthentication()
         logger.info("Core plugins configured")
         
         install(Compression)
@@ -119,9 +107,6 @@ fun Application.module() {
         val healthController by inject<HealthController>()
         val dataSyncService by inject<DataSyncService>()
         val errorHandler by inject<ErrorHandler>()
-        
-        // Comentar esta línea para evitar el error de duplicación
-        // errorHandler.configureStatusPages(this)
         
         try {
             logger.info("Initializing database with URL: ${config.jdbcUrl}")
